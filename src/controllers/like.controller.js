@@ -14,11 +14,11 @@ const toggleVideoLike = asyncHandler(async(req, res) => {
     const video = await Like.find({
         video: videoId, likedBy: user 
     })
-    const flag = ""
+    let flag = ""
     try{
-        if(!(video.length > 0)) {
+        if(!(video.length > 0 && user != video.owner)) {
             await Like.create({
-                video: mongoose.Types.ObjectId(videoId),
+                video: new mongoose.Types.ObjectId(videoId),
                 likedBy: user
             })
             flag = "Liked"
@@ -29,31 +29,81 @@ const toggleVideoLike = asyncHandler(async(req, res) => {
             flag = "Unliked"
         }
     } catch(err) {
-        throw new ApiError(500, "Error while liking the video!!")
+        throw new ApiError(500, `Error while liking / unliking the video!!: ${err}`)
     }
 
     return res.status(200)
     .json(new ApiResponse(200, {}, `${flag} video succesfully!` ))
 })
 
-// toggle like on comment 
 const toggleCommentLike = asyncHandler(async(req, res) => {
     const { commentId } = req.params
-    // TODO: same as above, need to validate its functioning 
+
+    const user = await User.findById(req.user?._id)
+
+    const comment = await Like.find({
+        comment: commentId, likedBy: user 
+    })
+    let flag = ""
+    try{
+        if(!(comment.length > 0)) {
+            await Like.create({
+                comment: new mongoose.Types.ObjectId(commentId),
+                likedBy: user
+            })
+            flag = "Liked"
+        } else {
+            await Like.deleteOne({
+                comment: commentId, likedBy: user 
+            })
+            flag = "Unliked"
+        }
+    } catch(err) {
+        throw new ApiError(500, `Error while liking / unliking the comment!!: ${err}`)
+    }
+
+    return res.status(200)
+    .json(new ApiResponse(200, {}, `${flag} comment succesfully!` ))
 })
 
-// toggle like on tweet 
 const toggleTweetLike = asyncHandler(async(req, res) => {
     const { tweetId } = req.params 
-    // TODO: same as above, need to validate its functioning 
+    // TODO: need to validate its functioning after finishing tweets controller
+
+    const user = await User.findById(req.user?._id)
+
+    const tweet = await Like.find({
+        tweet: tweetId, likedBy: user 
+    })
+    let flag = ""
+    try{
+        if(!(tweet.length > 0)) {
+            await Like.create({
+                tweet: new mongoose.Types.ObjectId(commentId),
+                likedBy: user
+            })
+            flag = "Liked"
+        } else {
+            await Like.deleteOne({
+                tweet: tweetId, likedBy: user 
+            })
+            flag = "Unliked"
+        }
+    } catch(err) {
+        throw new ApiError(500, `Error while liking / unliking the tweet!!: ${err}`)
+    }
+
+    return res.status(200)
+    .json(new ApiResponse(200, {}, `${flag} tweet succesfully!` ))
 })
 
-// all liked videos 
+// all liked videos by user
 const getLikedVideos = asyncHandler(async(req, res) => {
     const user = await User.findById(req.user?._id)
     
     const likedVideosByUser = await Like.find({
-        likedBy: user
+        likedBy: user,
+        video: {$exists: true}
     })
 
     return res.status(200)
@@ -61,4 +111,31 @@ const getLikedVideos = asyncHandler(async(req, res) => {
 
 })  
 
-export { toggleCommentLike, toggleTweetLike, toggleVideoLike, getLikedVideos }
+const getLikedComments = asyncHandler(async(req, res) => {
+    const user = await User.findById(req.user?._id)
+    
+    const likedCommentsByUser = await Like.find({
+        likedBy: user,
+        comment: {$exists: true}
+    })
+
+    return res.status(200)
+    .json(new ApiResponse(200, likedCommentsByUser, `All comments liked by ${user.username} fetched succesfully!`))
+
+})  
+
+const getLikedTweets = asyncHandler(async(req, res) => {
+    // TODO: need to validate its functioning after finishing tweets controller
+    const user = await User.findById(req.user?._id)
+    
+    const likedTweetsByUser = await Like.find({
+        likedBy: user,
+        tweet: {$exists: true}
+    })
+
+    return res.status(200)
+    .json(new ApiResponse(200, likedTweetsByUser, `All tweets liked by ${user.username} fetched succesfully!`))
+
+})  
+
+export { toggleCommentLike, toggleTweetLike, toggleVideoLike, getLikedVideos, getLikedTweets, getLikedComments }

@@ -13,18 +13,14 @@ import { User } from "../models/user.model.js"
 // total -> views, subs, videos, likes 
 const getChannelStats = asyncHandler(async(req, res) => {
     const { channelId } = req.params 
-    let owner 
-    try{
-        owner = await User.find({
-            _id: channelId
-        })
-    } catch(err) {
-        throw new ApiError(400, `Some error while fetching owner: ${err}`)
+    if(!channelId) {
+        throw new ApiError(404, "Channel Id is required")
     }
-    const videosOfChannel = await User.aggregate([
+    
+    const channelStats = await User.aggregate([
         {
             $match: {
-                _id: owner[0]._id
+                username: channelId?.toLowerCase()
             }
         },
         {
@@ -39,35 +35,74 @@ const getChannelStats = asyncHandler(async(req, res) => {
             $unwind: "$channelVideos"
         },
         {
-            $project: {
-                duration: "$channelVideos.duration",
-                views: "$channelVideos.views",
-                _id: 0
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "channel",
+                as: "subscribers",
+            }
+        },
+        {
+            $lookup: {
+                from: "videos",
+                localField: "_id",
+                foreignField: "owner",
+                as: "allVideos",
+            }
+        },
+        {
+            $lookup: {
+                from: "likes",
+                localField: "allVideos._id",
+                foreignField: "video",
+                as: "likes"
             }
         },
         {
             $addFields: {
-                totalViews: {
-                    $sum: "$views"
+                subscriberCount: {
+                    $size: "$subscribers"
                 },
-                totalDuration: {
-                    $sum: "$duration"
+                videosCount: {
+                    $size: "$allVideos"
+                },
+                likesCount: {
+                    $size: "$likes"
                 }
             }
         },
-        // {
-        //     $project: {
-        //         // _id: 0,
-        //         // channelVideos: 1,
-        //         totalDuration: 1, 
-        //         totalViews: 1
-        //     }
-        // },
+       
+        {
+            $group: {
+                _id: "$_id",
+                totalViews: {$sum: "$channelVideos.views"},
+                totalDuration: {$sum: "$channelVideos.duration"},
+                subscriberCount: {
+                    $addToSet: "$subscriberCount"
+                },
+                videosCount: {
+                    $addToSet: "$videosCount"
+                },
+                likesCount: {
+                    $addToSet: "$likesCount"
+                }
+            }
+        },
+        {
+            $unwind: "$subscriberCount"
+        },
+        {
+            $unwind: "$videosCount"
+        },
+        {
+            $unwind: "$likesCount"
+        }
+
     ])
     
 
     return res.status(200)
-    .json(new ApiResponse(200, videosOfChannel, "Channel Videos fetched succesfully!!"))
+    .json(new ApiResponse(200, channelStats, "Channel Videos fetched succesfully!!"))
     
 })
 

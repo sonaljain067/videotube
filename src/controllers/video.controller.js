@@ -39,20 +39,20 @@ const getAllVideos = asyncHandler(async(req, res) => {
                 $or: [
                     {
                         title: {
-                            $regex: query
+                            $regex: query || ""
                         }
                     },
                     {
                         description:{
-                            $regex: query
-                        }
+                            $regex: query || ""
+                        } 
                     }
                 ]
             }
         },
         {
             $sort: dynamicSort
-        },
+        }
         
     ])
 
